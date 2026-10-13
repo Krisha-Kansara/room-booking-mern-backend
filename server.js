@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const room = require('./models/Room');
+const Room = require('./models/Room'); // Changed to capitalized 'Room' for consistency
 
 const app = express();
 
@@ -13,32 +13,45 @@ mongoose.connect(process.env.MONGODB_URI)
 .then(()=> console.log('connected'))
 .catch((err)=>console.error('connection error',err));
 
-app.post('/bookRoom', async (req, res) => {
-    try {
-        const { roomId, userEmail, startTime, endTime, roomType } = req.body;
-        const newBooking = new room({
-            roomId,
-            userEmail,
-            startTime,
-            endTime,
-            roomType
-        });
-        const savedBooking = await newBooking.save();
-        return res.status(201).json({ 
-            message: 'room booked successfully', 
-            booking: savedBooking 
-        });
+app.post('/book', async (req, res) => {
+  try {
+    const { userEmail, roomId, startTime, endTime, roomType } = req.body;
 
-    } catch (err) {
-        console.error('Error saving to MongoDB:', err);
-        return res.status(500).json({ error: 'Internal Server Error', details: err.message });
+    // --- 1. Unique Email Check ---
+    const existingBooking = await Room.findOne({ userEmail: userEmail.toLowerCase().trim() });
+    if (existingBooking) {
+      return res.status(400).json({ message: "This email address has already booked a room." });
     }
+
+ 
+    const newStart = new Date(startTime);
+    const newEnd = new Date(endTime);
+
+    
+    const overlappingBooking = await Room.findOne({
+      roomId: roomId,
+      startTime: { $lt: newEnd },  
+      endTime: { $gt: newStart }    
+    });
+
+    if (overlappingBooking) {
+      return res.status(400).json({ message: "This room is already booked for the selected time slot." });
+    }
+
+    
+    const newRoom = new Room({ roomId, userEmail, startTime, endTime, roomType });
+    await newRoom.save();
+    
+    res.status(201).json({ message: "Booking successful!" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 
 app.get('/displayRoom', async (req, res) => {
     try {
-        const bookings = await room.find(); 
+        const bookings = await Room.find(); 
         return res.status(200).json(bookings);
     } catch (err) {
         console.error('Error fetching from MongoDB:', err);
@@ -46,7 +59,7 @@ app.get('/displayRoom', async (req, res) => {
     }
 });
 
-const PORT=process.env.PORT;
+const PORT = process.env.PORT || 5000; 
 app.listen(PORT, () => {
-    console.log('server is running');
-})
+    console.log(`Server is running on port ${PORT}`);
+});
