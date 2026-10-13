@@ -1,0 +1,13 @@
+POST http://localhost:5000/bookRoom HTTP/1.1
+content-type: application/json
+
+{
+    "roomId": "1",
+    "userEmail": "k1@gmail.com",
+    "startTime": "1PM",
+    "endTime": "2PM",
+    "roomType": "blue"
+}
+
+###
+GET http://localhost:5000/displayRoom HTTP/1.1
